@@ -3,6 +3,8 @@ import { details, summary, b, fragment, table, tbody, tr, th, h2 } from "./html"
 import { percentage } from "./lcov"
 import { tabulate } from "./tabulate"
 
+const REQUESTED_COMMENTS_PER_PAGE = 20
+
 export function comment(lcov, options) {
 	return fragment(
 		options.title ? h2(options.title) : "",
@@ -59,5 +61,29 @@ export function diff(lcov, before, options) {
 			),
 			tabulate(lcov, options),
 		),
+	)
+}
+
+export async function getExistingComments(github, options, context) {
+	let page = 0
+	let results = []
+	let response
+	do {
+		response = await github.issues.listComments({
+			issue_number: context.issue.number,
+			owner: context.repo.owner,
+			repo: context.repo.repo,
+			per_page: REQUESTED_COMMENTS_PER_PAGE,
+			page: page,
+		})
+		results = results.concat(response.data)
+		page++
+	} while (response.data.length === REQUESTED_COMMENTS_PER_PAGE)
+
+	return results.filter(
+		comment =>
+			!!comment.user &&
+			(!options.title || comment.body.includes(options.title)) &&
+			comment.body.includes("Coverage Report"),
 	)
 }
